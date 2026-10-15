@@ -25,6 +25,7 @@ This work was derived from:
   focused hardware and runtime tests.
 - `iroh-echo-full` is the relay-enabled iroh application.
 - `iroh-echo-bare` is a minimal bare-bones iroh app for the same platform.
+- `ble-scanner` lists nearby Bluetooth LE devices on the display.
 
 The application depends on `pico-std` like a normal native platform
 dependency. A small application build script forwards the Pico SDK linker
@@ -215,6 +216,28 @@ The Pico compatibility layer supplies the entropy, clock, `poll` and `eventfd`
 interfaces required by Rust `std`, Tokio and mio. Its eventfd integration polls
 lwIP in 10 ms slices; this is intentionally simple and prioritizes correctness
 and bring-up over high-throughput networking.
+
+## Bluetooth LE scanner
+
+`ble-scanner` does not use iroh or Wi-Fi. It brings up the RM2/CYW43439 with
+Bluetooth through the Pico SDK's BTstack port, scans continuously, and shows
+the devices it hears on the display, strongest signal first:
+
+```sh
+cargo run --release -p ble-scanner
+```
+
+Each row shows the smoothed RSSI, a signal bar, the device address and the
+advertised name. Devices that don't advertise a name show their manufacturer
+when the advertisement carries one. Devices not heard from for 20 seconds drop
+off the list. The ten strongest are also printed over USB every five seconds.
+
+Many phones and laptops use rotating random addresses, so the same device can
+show up more than once for a while.
+
+The platform side is the `bluetooth` feature of `pico-std`
+(`pico_std::bluetooth::start_scan`). It initializes the CYW43 itself, so it
+cannot currently be combined with `presto_wifi_connect` in one application.
 
 ## Why this is unusual
 

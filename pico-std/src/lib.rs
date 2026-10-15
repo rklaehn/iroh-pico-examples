@@ -336,6 +336,68 @@ pub mod display {
     }
 }
 
+#[cfg(feature = "bluetooth")]
+pub mod bluetooth {
+    //! BLE scanning on the RM2/CYW43439 through BTstack.
+
+    use std::sync::OnceLock;
+
+    /// One advertising or scan-response report.
+    #[derive(Clone, Copy, Debug)]
+    pub struct Advertisement<'a> {
+        /// Device address, most significant byte first (display order).
+        pub address: [u8; 6],
+        /// 0 = public, 1 = random, 2/3 = resolved identity addresses.
+        pub address_type: u8,
+        pub rssi: i8,
+        /// Raw AD structures (`len, type, data...`).
+        pub data: &'a [u8],
+    }
+
+    type Callback = Box<dyn Fn(Advertisement<'_>) + Send + Sync>;
+
+    static CALLBACK: OnceLock<Callback> = OnceLock::new();
+
+    extern "C" {
+        fn presto_bt_start_scan(
+            on_report: extern "C" fn(*const u8, u8, i8, *const u8, u8),
+        ) -> core::ffi::c_int;
+    }
+
+    extern "C" fn on_report(
+        address: *const u8,
+        address_type: u8,
+        rssi: i8,
+        data: *const u8,
+        data_len: u8,
+    ) {
+        let Some(callback) = CALLBACK.get() else { return };
+        let (address, data) = unsafe {
+            (
+                *(address as *const [u8; 6]),
+                core::slice::from_raw_parts(data, data_len as usize),
+            )
+        };
+        callback(Advertisement { address, address_type, rssi, data });
+    }
+
+    /// Bring up the CYW43 with Bluetooth and scan continuously.
+    ///
+    /// `callback` runs on the CYW43 task with BTstack's lock held: keep it
+    /// short (record the report and return). This initializes the CYW43, so
+    /// it cannot currently be combined with `presto_wifi_connect`. Call it at
+    /// most once.
+    pub fn start_scan(
+        callback: impl Fn(Advertisement<'_>) + Send + Sync + 'static,
+    ) -> Result<(), i32> {
+        if CALLBACK.set(Box::new(callback)).is_err() {
+            return Err(-1);
+        }
+        let result = unsafe { presto_bt_start_scan(on_report) };
+        if result == 0 { Ok(()) } else { Err(result) }
+    }
+}
+
 pub mod secret {
     //! Persist a 32-byte secret in the last flash sector, so identities like
     //! the iroh endpoint id survive restarts.

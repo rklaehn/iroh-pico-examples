@@ -70,6 +70,9 @@ pico_generate_pio_header(pico-std-rust-c
 if(DEFINED ENV{CARGO_FEATURE_WIFI})
     target_sources(pico-std-rust-c PRIVATE src/wifi.c)
 endif()
+if(DEFINED ENV{CARGO_FEATURE_BLUETOOTH})
+    target_sources(pico-std-rust-c PRIVATE src/bluetooth.c)
+endif()
 if(DEFINED ENV{CARGO_FEATURE_DISPLAY})
     target_sources(pico-std-rust-c PRIVATE src/display.c)
     pico_generate_pio_header(pico-std-rust-c
@@ -121,6 +124,26 @@ if(DEFINED ENV{CARGO_FEATURE_WIFI})
         NO_SYS=0
         LWIP_SOCKET=1
         LWIP_ERRNO_STDINCLUDE=1
+    )
+endif()
+if(DEFINED ENV{CARGO_FEATURE_BLUETOOTH})
+    if(NOT DEFINED ENV{CARGO_FEATURE_WIFI})
+        target_link_libraries(pico-std-rust-c PUBLIC
+            pico_cyw43_arch_sys_freertos
+        )
+        target_compile_definitions(pico-std-rust-c PUBLIC CYW43_LWIP=0)
+    endif()
+    target_link_libraries(pico-std-rust-c PUBLIC
+        pico_btstack_ble
+        pico_btstack_cyw43
+    )
+    target_compile_definitions(pico-std-rust-c PUBLIC
+        PICO_STD_BLUETOOTH=1
+        # BTstack and the Rust report callback run on the CYW43 task.
+        CYW43_TASK_STACK_SIZE=2048
+        # BTstack's TLV store defaults to the last two flash sectors, which
+        # would overlap the persistent secret in the very last sector.
+        "PICO_FLASH_BANK_STORAGE_OFFSET=(PICO_FLASH_SIZE_BYTES-3*FLASH_SECTOR_SIZE)"
     )
 endif()
 target_compile_definitions(pico-std-rust-c PUBLIC

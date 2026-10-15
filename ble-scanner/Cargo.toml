@@ -1,0 +1,17 @@
+[package]
+name = "ble-scanner"
+version = "0.1.0"
+edition = "2021"
+publish = false
+build = "../iroh-app-build.rs"
+
+[dependencies]
+pico-std = { path = "../pico-std", default-features = false, features = [
+    "app-stack-64k",
+    "bluetooth",
+    "display-psram",
+    "stdio-usb",
+] }
+
+[build-dependencies]
+embuild = "0.31.1"

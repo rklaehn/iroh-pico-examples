@@ -3,6 +3,7 @@ members = [
     "pico-std",
     "iroh-echo-full",
     "iroh-echo-bare",
+    "ble-scanner",
 ]
 default-members = ["pico-std"]
 resolver = "2"
